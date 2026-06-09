@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Famjam - Premium Salary & Budget Dashboard</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Login Overlay -->
+  <div id="login-overlay" class="login-overlay">
+    <div class="login-box card-blur">
+      <div class="logo-area" style="justify-content: center; margin-bottom: 24px;">
+        <div class="logo-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 4h12M6 9h12M9 4a5 5 0 0 1 0 10H9l8 8"/>
+          </svg>
+        </div>
+        <div class="logo-text">
+          <h1>Famjam</h1>
+        </div>
+      </div>
+      <h2 style="text-align: center; margin-bottom: 8px;">Welcome Back</h2>
+      <p style="text-align: center; color: var(--text-muted); margin-bottom: 24px; font-size: 14px;">Please enter your details to continue</p>
+      
+      <form id="form-login" class="transaction-form" style="background: transparent; border: none; padding: 0; box-shadow: none;" onsubmit="return false;">
+        <!-- STEP 1: Phone Number Only -->
+        <div id="step-phone">
+          <div class="form-group full-width">
+            <label for="login-phone">Phone Number</label>
+            <div style="display: flex; gap: 8px;">
+              <select id="login-country-code" class="form-control" style="flex-shrink: 0; width: 110px;">
+                <option value="+91">+91 (IND)</option>
+                <option value="+1">+1 (USA/CAN)</option>
+                <option value="+44">+44 (GBR)</option>
+                <option value="+61">+61 (AUS)</option>
+                <option value="+971">+971 (UAE)</option>
+                <option value="+65">+65 (SGP)</option>
+              </select>
+              <input type="tel" id="login-phone" placeholder="9876543210" required class="form-control" style="flex: 1;">
+            </div>
+          </div>
+          <div id="recaptcha-container" style="margin-top: 12px;"></div>
+          <div class="form-actions" style="margin-top: 24px;">
+            <button type="button" id="btn-send-otp" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 12px;">Send OTP</button>
+          </div>
+        </div>
+        
+        <!-- STEP 2: OTP Verification -->
+        <div id="step-otp" style="display: none;">
+          <div style="text-align: center; margin-bottom: 16px;">
+            <span style="font-size: 13px; color: var(--text-muted);">Sent to </span>
+            <strong id="display-phone-number" style="font-size: 14px; color: var(--text-main); margin-right: 8px;"></strong>
+            <button type="button" id="btn-edit-phone" style="background: transparent; border: none; color: var(--primary); font-size: 13px; cursor: pointer; text-decoration: underline; padding: 0;">Edit</button>
+          </div>
+          <div class="form-group full-width">
+            <label for="login-otp">Enter 6-Digit OTP</label>
+            <div style="display: flex; gap: 8px; justify-content: center;" id="otp-inputs">
+               <input type="text" maxlength="1" class="form-control otp-box" style="width: 44px; height: 50px; text-align: center; font-size: 24px; font-weight: 600;">
+               <input type="text" maxlength="1" class="form-control otp-box" style="width: 44px; height: 50px; text-align: center; font-size: 24px; font-weight: 600;">
+               <input type="text" maxlength="1" class="form-control otp-box" style="width: 44px; height: 50px; text-align: center; font-size: 24px; font-weight: 600;">
+               <input type="text" maxlength="1" class="form-control otp-box" style="width: 44px; height: 50px; text-align: center; font-size: 24px; font-weight: 600;">
+               <input type="text" maxlength="1" class="form-control otp-box" style="width: 44px; height: 50px; text-align: center; font-size: 24px; font-weight: 600;">
+               <input type="text" maxlength="1" class="form-control otp-box" style="width: 44px; height: 50px; text-align: center; font-size: 24px; font-weight: 600;">
+            </div>
+            <p id="otp-error" style="color: var(--danger); font-size: 12px; margin-top: 8px; text-align: center; display: none;">Invalid OTP.</p>
+          </div>
+          <div class="form-actions" style="margin-top: 24px;">
+            <button type="button" id="btn-verify-otp" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 12px;">Verify OTP</button>
+          </div>
+        </div>
+
+        <!-- STEP 3: User Information (after OTP verified) -->
+        <div id="step-userinfo" style="display: none;">
+          <div style="text-align: center; margin-bottom: 16px;">
+            <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, var(--success), var(--primary)); display: flex; align-items: center; justify-content: center; margin: 0 auto 8px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            <span style="font-size: 13px; color: var(--success); font-weight: 600;">Phone Verified Successfully!</span>
+          </div>
+          <p style="text-align: center; color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">Complete your profile to continue</p>
+          <div class="form-group full-width">
+            <label for="login-firstname">First Name</label>
+            <input type="text" id="login-firstname" placeholder="e.g., Takshil" required class="form-control">
+          </div>
+          <div class="form-group full-width" style="margin-top: 12px;">
+            <label for="login-surname">Surname</label>
+            <input type="text" id="login-surname" placeholder="e.g., Patel" required class="form-control">
+          </div>
+          <div class="form-group full-width" style="margin-top: 12px;">
+            <label for="login-email">Email Address</label>
+            <input type="email" id="login-email" placeholder="e.g., takshil@example.com" required class="form-control">
+          </div>
+          <div class="form-actions" style="margin-top: 24px;">
+            <button type="button" id="btn-save-profile" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 12px;">Continue to Dashboard</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- App Container -->
+  <div class="app-container">
+    
+    <!-- Top Navigation Header -->
+    <header class="app-header">
+      <div class="logo-area">
+        <div class="logo-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 4h12M6 9h12M9 4a5 5 0 0 1 0 10H9l8 8"/>
+          </svg>
+        </div>
+        <div class="logo-text">
+          <h1>Famjam</h1>
+          <span>Salary & Expense Manager</span>
+        </div>
+      </div>
+      
+      <!-- Controls -->
+      <div class="header-controls">
+        <!-- Month Selector -->
+        <div class="control-group">
+          <label>Active Period</label>
+          <div style="display: flex; gap: 8px;">
+            <select id="month-filter" class="form-control">
+              <option value="01">January</option>
+              <option value="02">February</option>
+              <option value="03">March</option>
+              <option value="04">April</option>
+              <option value="05">May</option>
+              <option value="06">June</option>
+              <option value="07">July</option>
+              <option value="08">August</option>
+              <option value="09">September</option>
+              <option value="10">October</option>
+              <option value="11">November</option>
+              <option value="12">December</option>
+            </select>
+            <select id="year-filter" class="form-control">
+              <option value="2024">2024</option>
+              <option value="2025">2025</option>
+              <option value="2026">2026</option>
+              <option value="2027">2027</option>
+              <option value="2028">2028</option>
+              <option value="2029">2029</option>
+              <option value="2030">2030</option>
+            </select>
+          </div>
+        </div>
+        
+        <!-- Theme Toggle -->
+        <button id="theme-toggle" class="btn-icon" aria-label="Toggle Theme">
+          <!-- Moon Icon (Dark Mode active by default) -->
+          <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+          <!-- Sun Icon (Light Mode) -->
+          <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+        </button>
+
+        <!-- Data Import/Export Menu Toggle -->
+        <button id="data-menu-toggle" class="btn-icon" aria-label="Database Settings">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22c5.523 0 10-2.239 10-5V7c0-2.761-4.477-5-10-5S2 4.239 2 7v10c0 2.761 4.477 5 10 5z"/>
+            <path d="M2 7c0 2.761 4.477 5 10 5s10-2.239 10-5"/>
+            <path d="M2 12c0 2.761 4.477 5 10 5s10-2.239 10-5"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Data Controls Modal Dropdown -->
+    <div id="data-dropdown" class="data-dropdown hidden">
+      <div class="dropdown-header">
+        <h3>Data Management</h3>
+      </div>
+      <div class="dropdown-content">
+        <button id="btn-export" class="btn btn-secondary">
+          <svg class="btn-icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Export Data (JSON)
+        </button>
+        <button id="btn-import-trigger" class="btn btn-secondary">
+          <svg class="btn-icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+          Import Data (JSON)
+        </button>
+        <input type="file" id="import-file" accept=".json" style="display: none;">
+        <button id="btn-logout" class="btn btn-secondary" style="color: var(--warning);">
+          <svg class="btn-icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+          Log Out
+        </button>
+        <button id="btn-clear-all" class="btn btn-danger">
+          <svg class="btn-icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+          Clear Current Month Data
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Dashboard Grid -->
+    <main class="dashboard-grid">
+      
+      <!-- SECTION 1: Stat Cards -->
+      <section class="stats-container">
+        
+        <!-- CARD 1: Received Salary -->
+        <div class="stat-card card-income-received">
+          <div class="card-glow"></div>
+          <div class="stat-header">
+            <span class="stat-title">Received Salary</span>
+            <div class="stat-icon income-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="5" width="20" height="14" rx="2" ry="2"></rect>
+                <line x1="12" y1="17" x2="12" y2="17"></line>
+                <path d="M12 9a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5z"></path>
+              </svg>
+            </div>
+          </div>
+          <div class="stat-value" id="val-income-received">₹0.00</div>
+          <div class="stat-subtext">
+            <span>Pending Salary:</span> <strong id="val-income-pending">₹0.00</strong>
+          </div>
+        </div>
+
+        <!-- CARD 2: Paid Expenses -->
+        <div class="stat-card card-expense-paid">
+          <div class="card-glow"></div>
+          <div class="stat-header">
+            <span class="stat-title">Paid Expenses</span>
+            <div class="stat-icon expense-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </div>
+          </div>
+          <div class="stat-value" id="val-expense-paid">₹0.00</div>
+          <div class="stat-subtext">
+            <span>Unpaid Expenses:</span> <strong id="val-expense-pending">₹0.00</strong>
+          </div>
+        </div>
+
+        <!-- CARD 3: Net Savings / Available Balance -->
+        <div class="stat-card card-balance">
+          <div class="card-glow"></div>
+          <div class="stat-header">
+            <span class="stat-title">Available Balance</span>
+            <div class="stat-icon balance-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="16"></line>
+                <line x1="8" y1="12" x2="16" y2="12"></line>
+              </svg>
+            </div>
+          </div>
+          <div class="stat-value" id="val-balance">₹0.00</div>
+          <div class="stat-subtext">
+            <span>Deducted from Received Salary</span>
+          </div>
+        </div>
+
+        <!-- CARD 4: Budget Burn Rate / Details -->
+        <div class="stat-card card-savings-rate">
+          <div class="card-glow"></div>
+          <div class="stat-header">
+            <span class="stat-title">Salary Utilization</span>
+            <div class="stat-icon utilization-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path>
+                <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
+              </svg>
+            </div>
+          </div>
+          <div class="stat-value" id="val-utilization">0%</div>
+          <div class="stat-progress-bar-container">
+            <div class="stat-progress-bar" id="utilization-bar" style="width: 0%"></div>
+          </div>
+          <div class="stat-subtext">
+            <span id="utilization-status">Healthy Budget</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 2: Transaction Managers -->
+      <section class="transactions-container">
+        
+        <!-- COLUMN 1: INCOME SEGMENTS -->
+        <div class="transaction-box card-blur">
+          <div class="box-header">
+            <h2>Income Segments</h2>
+            <button class="btn btn-primary btn-sm" id="btn-toggle-add-income">
+              <svg class="btn-icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add Income
+            </button>
+          </div>
+
+          <!-- Add Income Form (Toggled via JS) -->
+          <form id="form-income" class="transaction-form hidden">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="income-source">Income Source</label>
+                <input type="text" id="income-source" placeholder="e.g., Main Salary, Freelance" required class="form-control">
+              </div>
+              <div class="form-group">
+                <label for="income-amount">Amount (₹)</label>
+                <input type="number" id="income-amount" placeholder="0.00" min="0.01" step="0.01" required class="form-control">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="income-date">Date Received / Expected</label>
+                <input type="date" id="income-date" required class="form-control">
+              </div>
+              <div class="form-group">
+                <label for="income-status">Status</label>
+                <select id="income-status" class="form-control">
+                  <option value="received">Received</option>
+                  <option value="pending">Pending</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-cancel-income">Cancel</button>
+              <button type="submit" class="btn btn-success btn-sm">Save Income</button>
+            </div>
+          </form>
+
+          <!-- Income List -->
+          <div class="list-wrapper">
+            <div class="list-header">
+              <span>Source</span>
+              <span class="text-right">Amount / Status</span>
+            </div>
+            <div id="income-list" class="transaction-list">
+              <!-- Rendered Dynamically -->
+              <div class="empty-list-message">No income items logged for this month.</div>
+            </div>
+          </div>
+          
+          <!-- Income Summary Card Footer -->
+          <div class="list-footer">
+            <div class="footer-stat">
+              <span>Total Month Salary Expected:</span>
+              <span id="footer-total-income">₹0.00</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- COLUMN 2: EXPENSES DEDUCTION -->
+        <div class="transaction-box card-blur">
+          <div class="box-header">
+            <h2>Expense Checklist</h2>
+            <button class="btn btn-primary btn-sm" id="btn-toggle-add-expense">
+              <svg class="btn-icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add Expense
+            </button>
+          </div>
+
+          <!-- Add Expense Form (Toggled via JS) -->
+          <form id="form-expense" class="transaction-form hidden">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="expense-name">Expense Name</label>
+                <input type="text" id="expense-name" placeholder="e.g., Rent, Grocery" required class="form-control">
+              </div>
+              <div class="form-group">
+                <label for="expense-amount">Amount (₹)</label>
+                <input type="number" id="expense-amount" placeholder="0.00" min="0.01" step="0.01" required class="form-control">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <div class="label-with-action">
+                  <label for="expense-category">Category</label>
+                  <button type="button" id="btn-manage-categories" class="btn-link-sm">+ Add New</button>
+                </div>
+                <select id="expense-category" class="form-control">
+                  <!-- Rendered dynamically -->
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="expense-date">Due / Paid Date</label>
+                <input type="date" id="expense-date" required class="form-control">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group full-width">
+                <label for="expense-status">Payment Checkpoint Status</label>
+                <select id="expense-status" class="form-control">
+                  <option value="pending">Pending (Unpaid)</option>
+                  <option value="paid">Paid (Deduct from Salary)</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-cancel-expense">Cancel</button>
+              <button type="submit" class="btn btn-danger btn-sm">Save Expense</button>
+            </div>
+          </form>
+
+          <!-- Add Category Form (Toggled via JS) -->
+          <form id="form-category" class="transaction-form hidden">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="category-name">Category Name</label>
+                <input type="text" id="category-name" placeholder="e.g., Shopping, Subscriptions" required class="form-control">
+              </div>
+              <div class="form-group">
+                <label for="category-color">Color Accent</label>
+                <input type="color" id="category-color" value="#6366f1" class="form-control color-picker">
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-cancel-category">Cancel</button>
+              <button type="submit" class="btn btn-success btn-sm">Save Category</button>
+            </div>
+          </form>
+
+          <!-- Expense List -->
+          <div class="list-wrapper">
+            <div class="list-header">
+              <span>Expense Details</span>
+              <span class="text-right">Amount / Paid</span>
+            </div>
+            <div id="expense-list" class="transaction-list">
+              <!-- Rendered Dynamically -->
+              <div class="empty-list-message">No expenses logged for this month.</div>
+            </div>
+          </div>
+          
+          <!-- Expense Summary Card Footer -->
+          <div class="list-footer">
+            <div class="footer-stat">
+              <span>Total Month Expenses:</span>
+              <span id="footer-total-expense">₹0.00</span>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- SECTION 3: Shared Groups & Goals -->
+      <section class="analytics-container card-blur" style="background-color: rgba(99, 102, 241, 0.03); border-color: rgba(99, 102, 241, 0.2);">
+        <div class="analytics-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <h2>Shared Savings Groups</h2>
+            <span class="sub-header-text">Create private, invite-only goals to save together</span>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary btn-sm" id="btn-join-group">Join by Code</button>
+            <button class="btn btn-primary btn-sm" id="btn-toggle-add-group">
+              <svg class="btn-icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Create New Group
+            </button>
+          </div>
+        </div>
+
+        <!-- Create Group Form -->
+        <form id="form-create-group" class="transaction-form hidden" style="margin-top: 16px;">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="group-name">Group / Goal Name</label>
+              <input type="text" id="group-name" placeholder="e.g., Anniversary Trip" required class="form-control">
+            </div>
+            <div class="form-group">
+              <label for="group-target">Target Amount (₹)</label>
+              <input type="number" id="group-target" placeholder="50000" min="1" step="1" required class="form-control">
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-cancel-group">Cancel</button>
+            <button type="submit" class="btn btn-success btn-sm">Create Group</button>
+          </div>
+        </form>
+
+        <!-- Groups Grid -->
+        <div id="groups-grid" class="charts-grid" style="margin-top: 16px;">
+           <div class="empty-list-message" style="grid-column: 1 / -1;">No shared groups created yet. Start a new goal above!</div>
+        </div>
+      </section>
+
+      <!-- SECTION 4: Charts and Visual Insights -->
+      <section class="analytics-container card-blur">
+        <div class="analytics-header">
+          <h2>Financial Insights & Visuals</h2>
+          <span class="sub-header-text">Automatic breakdown of current month activities</span>
+        </div>
+        
+        <div class="charts-grid">
+          <!-- Chart Card 1: Budget Structure Breakdown -->
+          <div class="chart-card">
+            <h3>Expense Distribution by Category</h3>
+            <div class="chart-wrapper">
+              <canvas id="categoryChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Chart Card 2: Cash Flow Checkpoints -->
+          <div class="chart-card">
+            <h3>Income vs Expense Checkpoint Comparison</h3>
+            <div class="chart-wrapper">
+              <canvas id="cashflowChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Add Funds Modal -->
+    <div id="modal-add-funds" class="hidden" style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+      <div class="transaction-box card-blur" style="width: 100%; max-width: 400px;">
+        <div class="box-header">
+          <h2 id="modal-group-title">Add Funds</h2>
+        </div>
+        <form id="form-add-funds" class="transaction-form" style="display: flex;">
+          <input type="hidden" id="fund-group-id">
+          <div class="form-row">
+            <div class="form-group full-width">
+              <label for="fund-member-name">Contributor Name</label>
+              <input type="text" id="fund-member-name" placeholder="e.g., Taksh" required class="form-control">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group full-width">
+              <label for="fund-amount">Amount (₹)</label>
+              <input type="number" id="fund-amount" placeholder="1000" min="1" required class="form-control">
+            </div>
+          </div>
+          <div class="form-actions" style="margin-top: 16px;">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-cancel-funds">Cancel</button>
+            <button type="submit" class="btn btn-success btn-sm">Add Contribution</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Footer Copyright -->
+    <footer class="app-footer-credits">
+      <p>Famjam Dashboard &copy; 2026. Premium salary tracking systems. Secured locally in browser.</p>
+    </footer>
+
+  </div>
+
+  <!-- Custom Scripts -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>
