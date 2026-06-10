@@ -5,7 +5,6 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, doc, setDoc, onSnapshot, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCqkUq9CEAYY4qCLZmI8tHenagKjFGkMaE",
@@ -19,7 +18,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const auth = getAuth(app);
 
 // ==========================================================================
 // STATE MANAGEMENT & LOCAL STORAGE
@@ -72,8 +70,8 @@ class FinanceStore {
   // Save current state to localStorage and cloud
   saveState() {
     localStorage.setItem(this.storageKey, JSON.stringify(this.state));
-    if (this.currentUserPhone && this._cloudReady) {
-      setDoc(doc(db, "users", this.currentUserPhone), this.state).catch(e => console.error("Cloud sync error:", e));
+    if (this.currentUserEmail && this._cloudReady) {
+      setDoc(doc(db, "users", this.currentUserEmail), this.state).catch(e => console.error("Cloud sync error:", e));
     }
   }
 
@@ -83,13 +81,13 @@ class FinanceStore {
            (this.state.expenses && this.state.expenses.length > 0);
   }
 
-  async syncUserToCloud(phone) {
-    this.currentUserPhone = phone;
+  async syncUserToCloud(email) {
+    this.currentUserEmail = email;
     this._cloudReady = false;
     this._isFirstSnapshot = true;
 
     try {
-      onSnapshot(doc(db, "users", phone), (docSnap) => {
+      onSnapshot(doc(db, "users", email), (docSnap) => {
         if (docSnap.exists()) {
           // Cloud data found — always use cloud data as the source of truth
           const cloudData = docSnap.data();
@@ -108,18 +106,18 @@ class FinanceStore {
           if (window.appControllerInstance) {
             window.appControllerInstance.updateView();
           }
-          console.log("Data loaded from cloud for", phone);
+          console.log("Data loaded from cloud for", email);
         } else {
           // No cloud data exists for this user
           this._cloudReady = true;
           
           if (this._hasRealData()) {
             // User has local data — push it to cloud
-            console.log("No cloud data found, saving local data to cloud for", phone);
+            console.log("No cloud data found, saving local data to cloud for", email);
             this.saveState();
           } else {
             // No data anywhere — start fresh (empty)
-            console.log("New user, starting with empty data for", phone);
+            console.log("New user, starting with empty data for", email);
             this.saveState();
           }
           
@@ -242,7 +240,7 @@ class FinanceStore {
       const userStr = localStorage.getItem('salaryflow_user');
       if (userStr) {
         const parsed = JSON.parse(userStr);
-        if (parsed.phone) userId = parsed.phone;
+        if (parsed.email) userId = parsed.email;
       }
     } catch(e) {}
 
@@ -518,8 +516,7 @@ class AppController {
       // Login Elements
       loginOverlay: document.getElementById('login-overlay'),
       formLogin: document.getElementById('form-login'),
-      loginCountryCode: document.getElementById('login-country-code'),
-      loginPhone: document.getElementById('login-phone'),
+      loginEmail: document.getElementById('login-email'),
       btnSendOtp: document.getElementById('btn-send-otp'),
       stepPhone: document.getElementById('step-phone'),
       stepOtp: document.getElementById('step-otp'),
@@ -531,7 +528,6 @@ class AppController {
       otpError: document.getElementById('otp-error'),
       loginFirstName: document.getElementById('login-firstname'),
       loginSurname: document.getElementById('login-surname'),
-      loginEmail: document.getElementById('login-email'),
       btnSaveProfile: document.getElementById('btn-save-profile'),
 
       monthFilter: document.getElementById('month-filter'),
@@ -622,121 +618,76 @@ class AppController {
   }
 
   initAuth() {
-    let userStr = localStorage.getItem('salaryflow_user');
-    if (userStr) {
+    const token = localStorage.getItem('salaryflow_token');
+    const userStr = localStorage.getItem('salaryflow_user');
+
+    if (token && userStr) {
+      // Valid new-auth session found
       this.dom.loginOverlay.classList.add('hidden');
       try {
         const parsed = JSON.parse(userStr);
-        if(this.dom.fundMemberName) {
+        if (this.dom.fundMemberName && parsed.name) {
           this.dom.fundMemberName.value = parsed.name;
         }
-        // Sync with cloud — cloud data will overwrite local if it exists
-        store.syncUserToCloud(parsed.phone);
+        store.syncUserToCloud(parsed.email);
       } catch(e) {
         console.error("Error restoring user session:", e);
       }
     } else {
+      // No valid session — clear any stale data from old Firebase auth and show login
+      localStorage.removeItem('salaryflow_user');
       this.dom.loginOverlay.classList.remove('hidden');
-      this.setupFirebasePhoneAuth();
+      this.setupEmailOtpAuth();
     }
   }
 
-  setupFirebasePhoneAuth() {
-    // Store phone number for later use
-    this._verifiedPhone = null;
-    this._verifiedUid = null;
-    this._recaptchaReady = false;
+  setupEmailOtpAuth() {
+    this._verifiedEmail = null;
+    this._authToken = null;
 
-    // Initialize reCAPTCHA with error handling
-    try {
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        'size': 'normal',
-        'callback': (response) => {
-          // reCAPTCHA solved - enable send button
-          this._recaptchaReady = true;
-          this.dom.btnSendOtp.disabled = false;
-          this.dom.btnSendOtp.innerText = 'Send OTP';
-          this.dom.btnSendOtp.style.opacity = '1';
-        },
-        'expired-callback': () => {
-          // reCAPTCHA expired
-          this._recaptchaReady = false;
-          this.dom.btnSendOtp.disabled = false;
-          this.dom.btnSendOtp.innerText = 'Send OTP';
-        }
-      });
-
-      // Explicitly render the reCAPTCHA widget
-      window.recaptchaVerifier.render().then((widgetId) => {
-        window.recaptchaWidgetId = widgetId;
-        console.log("reCAPTCHA rendered successfully, widget ID:", widgetId);
-      }).catch((error) => {
-        console.error("reCAPTCHA render error:", error);
-        // Show error to user
-        const container = document.getElementById('recaptcha-container');
-        if (container) {
-          container.innerHTML = '<p style="color: var(--danger); font-size: 12px; margin-top: 8px;">⚠️ reCAPTCHA failed to load. Check your internet connection and refresh.</p>';
-        }
-      });
-    } catch (error) {
-      console.error("RecaptchaVerifier init error:", error);
-      const container = document.getElementById('recaptcha-container');
-      if (container) {
-        container.innerHTML = '<p style="color: var(--danger); font-size: 12px; margin-top: 8px;">⚠️ Authentication service failed to initialize. Please refresh the page.</p>';
-      }
-    }
-
-    this.dom.btnSendOtp.addEventListener('click', () => {
-      const rawPhone = this.dom.loginPhone.value.trim();
-      const countryCode = this.dom.loginCountryCode.value;
-      
-      if (!rawPhone) {
-        alert("Please enter your phone number");
+    // Step 1 → Step 2: Request OTP
+    this.dom.btnSendOtp.addEventListener('click', async () => {
+      const email = this.dom.loginEmail.value.trim();
+      if (!email) {
+        alert("Please enter your email address");
         return;
       }
-      
-      // Remove any non-numeric characters the user might have accidentally typed
-      const cleanPhone = rawPhone.replace(/\D/g, '');
-      const phoneNumber = countryCode + cleanPhone;
 
-      // Show loading state
       this.dom.btnSendOtp.disabled = true;
-      this.dom.btnSendOtp.innerText = 'Sending OTP...';
-      
-      signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier)
-        .then((confirmationResult) => {
-          window.confirmationResult = confirmationResult;
-          this.dom.displayPhoneNumber.innerText = phoneNumber;
-          this._verifiedPhone = phoneNumber;
+      this.dom.btnSendOtp.innerText = 'Sending...';
+
+      try {
+        const res = await fetch('/api/auth/send-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          this._verifiedEmail = email;
+          this.dom.displayPhoneNumber.innerText = email;
           this.dom.stepPhone.style.display = 'none';
           this.dom.stepOtp.style.display = 'block';
-        }).catch((error) => {
-          console.error("SMS Error", error);
+
+          if (data.demoMode) {
+            this.dom.otpError.style.display = 'block';
+            this.dom.otpError.style.color = 'var(--info)';
+            this.dom.otpError.innerText = `Your OTP: ${data.otp}`;
+          }
+        } else {
+          alert(data.error || 'Failed to send OTP. Please try again.');
           this.dom.btnSendOtp.disabled = false;
           this.dom.btnSendOtp.innerText = 'Send OTP';
-          
-          // Reset reCAPTCHA on error so user can retry
-          if (window.recaptchaVerifier) {
-            try {
-              grecaptcha.reset(window.recaptchaWidgetId);
-            } catch(e) {
-              console.warn("Could not reset reCAPTCHA:", e);
-            }
-          }
-          
-          if (error.code === 'auth/invalid-phone-number') {
-            alert("Invalid phone number format. Please check and try again.");
-          } else if (error.code === 'auth/too-many-requests') {
-            alert("Too many attempts. Please wait a few minutes and try again.");
-          } else if (error.code === 'auth/captcha-check-failed') {
-            alert("reCAPTCHA verification failed. Please solve the captcha and try again.");
-          } else {
-            alert("Error sending OTP: " + error.message);
-          }
-        });
+        }
+      } catch(e) {
+        alert('Network error. Please check your connection and try again.');
+        this.dom.btnSendOtp.disabled = false;
+        this.dom.btnSendOtp.innerText = 'Send OTP';
+      }
     });
 
-    // Handle OTP inputs auto-focus
+    // OTP input: auto-advance on digit entry, backspace to go back
     this.dom.otpBoxes.forEach((box, index) => {
       box.addEventListener('input', (e) => {
         if (e.target.value.length === 1) {
@@ -754,67 +705,122 @@ class AppController {
       });
     });
 
+    // Edit email: go back to step 1
     this.dom.btnEditPhone.addEventListener('click', () => {
-      // Clear OTP boxes
       this.dom.otpBoxes.forEach(box => box.value = '');
       this.dom.otpError.style.display = 'none';
-      
-      // Go back to phone step
       this.dom.stepOtp.style.display = 'none';
       this.dom.stepPhone.style.display = 'block';
+      this.dom.btnSendOtp.disabled = false;
+      this.dom.btnSendOtp.innerText = 'Send OTP';
     });
 
-    // Step 2 → Step 3: Verify OTP then show user info form
-    this.dom.btnVerifyOtp.addEventListener('click', () => {
+    // Step 2 → Step 3: Verify OTP
+    this.dom.btnVerifyOtp.addEventListener('click', async () => {
       let code = "";
       this.dom.otpBoxes.forEach(box => code += box.value);
-      
+
       if (code.length !== 6) {
         this.dom.otpError.style.display = 'block';
-        this.dom.otpError.innerText = 'Please enter a 6-digit OTP.';
+        this.dom.otpError.style.color = 'var(--danger)';
+        this.dom.otpError.innerText = 'Please enter the complete 6-digit OTP.';
         return;
       }
 
-      window.confirmationResult.confirm(code).then((result) => {
-        this._verifiedUid = result.user.uid;
-        // Move to Step 3: User Info
-        this.dom.stepOtp.style.display = 'none';
-        this.dom.stepUserInfo.style.display = 'block';
-      }).catch((error) => {
-        this.dom.otpError.style.display = 'block';
-        this.dom.otpError.innerText = 'Invalid OTP. Try again.';
-      });
+      this.dom.btnVerifyOtp.disabled = true;
+      this.dom.btnVerifyOtp.innerText = 'Verifying...';
+
+      try {
+        const res = await fetch('/api/auth/verify-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: this._verifiedEmail, otp: code })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          this._authToken = data.token;
+          localStorage.setItem('salaryflow_token', data.token);
+
+          if (!data.isNewUser && data.user.firstName) {
+            // Returning user with a complete profile — go straight to dashboard
+            const userData = {
+              id: data.user.id,
+              email: data.user.email,
+              firstName: data.user.firstName,
+              surname: data.user.surname,
+              name: `${data.user.firstName} ${data.user.surname}`
+            };
+            localStorage.setItem('salaryflow_user', JSON.stringify(userData));
+            this.dom.loginOverlay.classList.add('hidden');
+            if (this.dom.fundMemberName) {
+              this.dom.fundMemberName.value = userData.name;
+            }
+            store.syncUserToCloud(userData.email);
+          } else {
+            // New user or incomplete profile — collect name
+            this.dom.stepOtp.style.display = 'none';
+            this.dom.stepUserInfo.style.display = 'block';
+          }
+        } else {
+          this.dom.otpError.style.display = 'block';
+          this.dom.otpError.style.color = 'var(--danger)';
+          this.dom.otpError.innerText = data.error || 'Invalid OTP. Please try again.';
+          this.dom.btnVerifyOtp.disabled = false;
+          this.dom.btnVerifyOtp.innerText = 'Verify OTP';
+        }
+      } catch(e) {
+        alert('Network error. Please check your connection and try again.');
+        this.dom.btnVerifyOtp.disabled = false;
+        this.dom.btnVerifyOtp.innerText = 'Verify OTP';
+      }
     });
 
-    // Step 3 → Dashboard: Save profile and enter app
-    this.dom.btnSaveProfile.addEventListener('click', () => {
+    // Step 3 → Dashboard: Save name and enter app
+    this.dom.btnSaveProfile.addEventListener('click', async () => {
       const firstName = this.dom.loginFirstName.value.trim();
       const surname = this.dom.loginSurname.value.trim();
-      const email = this.dom.loginEmail.value.trim();
 
-      if (!firstName || !surname || !email) {
-        alert('Please fill in all the fields.');
+      if (!firstName || !surname) {
+        alert('Please fill in your first name and surname.');
         return;
       }
 
-      const fullName = firstName + ' ' + surname;
-      const phone = this._verifiedPhone;
+      this.dom.btnSaveProfile.disabled = true;
+      this.dom.btnSaveProfile.innerText = 'Saving...';
 
-      const userData = {
-        name: fullName,
-        firstName: firstName,
-        surname: surname,
-        email: email,
-        phone: phone,
-        uid: this._verifiedUid
-      };
-      localStorage.setItem('salaryflow_user', JSON.stringify(userData));
+      try {
+        const res = await fetch('/api/auth/save-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: this._authToken, firstName, surname })
+        });
+        const data = await res.json();
 
-      this.dom.loginOverlay.classList.add('hidden');
-      if (this.dom.fundMemberName) {
-        this.dom.fundMemberName.value = fullName;
+        if (data.success) {
+          const userData = {
+            id: data.user.id,
+            email: this._verifiedEmail,
+            firstName,
+            surname,
+            name: `${firstName} ${surname}`
+          };
+          localStorage.setItem('salaryflow_user', JSON.stringify(userData));
+          this.dom.loginOverlay.classList.add('hidden');
+          if (this.dom.fundMemberName) {
+            this.dom.fundMemberName.value = userData.name;
+          }
+          store.syncUserToCloud(this._verifiedEmail);
+        } else {
+          alert(data.error || 'Failed to save profile. Please try again.');
+          this.dom.btnSaveProfile.disabled = false;
+          this.dom.btnSaveProfile.innerText = 'Continue to Dashboard';
+        }
+      } catch(e) {
+        alert('Network error. Please check your connection and try again.');
+        this.dom.btnSaveProfile.disabled = false;
+        this.dom.btnSaveProfile.innerText = 'Continue to Dashboard';
       }
-      store.syncUserToCloud(phone);
     });
   }
 
@@ -891,6 +897,7 @@ class AppController {
     if (btnLogout) {
       btnLogout.addEventListener('click', () => {
         localStorage.removeItem('salaryflow_user');
+        localStorage.removeItem('salaryflow_token');
         window.location.reload();
       });
     }
