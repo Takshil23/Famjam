@@ -32,23 +32,12 @@
       <p style="text-align: center; color: var(--text-muted); margin-bottom: 24px; font-size: 14px;">Please enter your details to continue</p>
       
       <form id="form-login" class="transaction-form" style="background: transparent; border: none; padding: 0; box-shadow: none;" onsubmit="return false;">
-        <!-- STEP 1: Phone Number Only -->
+        <!-- STEP 1: Email Address -->
         <div id="step-phone">
           <div class="form-group full-width">
-            <label for="login-phone">Phone Number</label>
-            <div style="display: flex; gap: 8px;">
-              <select id="login-country-code" class="form-control" style="flex-shrink: 0; width: 110px;">
-                <option value="+91">+91 (IND)</option>
-                <option value="+1">+1 (USA/CAN)</option>
-                <option value="+44">+44 (GBR)</option>
-                <option value="+61">+61 (AUS)</option>
-                <option value="+971">+971 (UAE)</option>
-                <option value="+65">+65 (SGP)</option>
-              </select>
-              <input type="tel" id="login-phone" placeholder="9876543210" required class="form-control" style="flex: 1;">
-            </div>
+            <label for="login-email">Email Address</label>
+            <input type="email" id="login-email" placeholder="your@email.com" required class="form-control">
           </div>
-          <div id="recaptcha-container" style="margin-top: 12px;"></div>
           <div class="form-actions" style="margin-top: 24px;">
             <button type="button" id="btn-send-otp" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 12px;">Send OTP</button>
           </div>
@@ -57,7 +46,7 @@
         <!-- STEP 2: OTP Verification -->
         <div id="step-otp" style="display: none;">
           <div style="text-align: center; margin-bottom: 16px;">
-            <span style="font-size: 13px; color: var(--text-muted);">Sent to </span>
+            <span style="font-size: 13px; color: var(--text-muted);">OTP sent to </span>
             <strong id="display-phone-number" style="font-size: 14px; color: var(--text-main); margin-right: 8px;"></strong>
             <button type="button" id="btn-edit-phone" style="background: transparent; border: none; color: var(--primary); font-size: 13px; cursor: pointer; text-decoration: underline; padding: 0;">Edit</button>
           </div>
@@ -84,7 +73,7 @@
             <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, var(--success), var(--primary)); display: flex; align-items: center; justify-content: center; margin: 0 auto 8px;">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
             </div>
-            <span style="font-size: 13px; color: var(--success); font-weight: 600;">Phone Verified Successfully!</span>
+            <span style="font-size: 13px; color: var(--success); font-weight: 600;">Email Verified Successfully!</span>
           </div>
           <p style="text-align: center; color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">Complete your profile to continue</p>
           <div class="form-group full-width">
@@ -94,10 +83,6 @@
           <div class="form-group full-width" style="margin-top: 12px;">
             <label for="login-surname">Surname</label>
             <input type="text" id="login-surname" placeholder="e.g., Patel" required class="form-control">
-          </div>
-          <div class="form-group full-width" style="margin-top: 12px;">
-            <label for="login-email">Email Address</label>
-            <input type="email" id="login-email" placeholder="e.g., takshil@example.com" required class="form-control">
           </div>
           <div class="form-actions" style="margin-top: 24px;">
             <button type="button" id="btn-save-profile" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 12px;">Continue to Dashboard</button>
